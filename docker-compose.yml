@@ -1,0 +1,13 @@
+version: '3.9'
+services:
+  app:
+    image: st-go-web-dev
+    build:
+      # ここでDockerfileのあるディレクトリを指定する
+      args:
+        - target=dev
+    volumes:
+      # これはホストのカレントディレクトリをコンテナの/appにマウントする
+      - .:/app
+    ports:
+      - '18080:80'
