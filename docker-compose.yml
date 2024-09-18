@@ -6,8 +6,11 @@ services:
       # ここでDockerfileのあるディレクトリを指定する
       args:
         - target=dev
+    environment:
+      ENV: dev
+      PORT: 8080
     volumes:
       # これはホストのカレントディレクトリをコンテナの/appにマウントする
       - .:/app
     ports:
-      - '18080:80'
+      - '18080:8080'
