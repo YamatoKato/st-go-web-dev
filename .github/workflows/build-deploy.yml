@@ -80,3 +80,4 @@ jobs:
           task-definition: ${{ steps.task-def.outputs.task-definition }} # id:task-defで出力されたタスク定義を利用
           service: ${{ env.APP }}
           cluster: ${{ env.APP }}-cluster
+          wait-for-service-stability: true
