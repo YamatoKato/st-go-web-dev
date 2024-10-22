@@ -1,0 +1,83 @@
+name: 'Build and Deploy'
+
+# main branch に push されたときに実行（PRのmerge含む）
+on:
+  push:
+    branches:
+      - main
+
+env:
+  OIDC_ARN: arn:aws:iam::485368632596:role/GitHubActionsOIDC # OIDCによるAWSへのアクセス権限を持つIAMロール
+  ECR_REGISTRY: 485368632596.dkr.ecr.ap-northeast-1.amazonaws.com # ECRリポジトリのURI
+  ECR_REPOSITORY: st-go-web-dev # ECRリポジトリ名
+  APP: st-go-web-dev # アプリケーション名
+
+permissions:
+  id-token: write # OIDC による認証のため
+  contents: read # イメージのビルド時に、リポジトリのコンテンツを参照するため
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Buildx というプラグインを導入することで既存の docker コマンドの機能を拡張する
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # キャッシュを利用してビルドを高速化
+      - uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache # キャッシュとリストアのためのパス
+          key: ${{ runner.os }}-buildx-${{ github.sha }} # キャッシュのキー
+          restore-keys: | # キャッシュがない場合に利用するキー
+            ${{ runner.os }}-buildx-
+
+      # Assume Role で OIDC による認証を行う
+      - name: Assume Role
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          role-to-assume: ${{ env.OIDC_ARN }}
+          aws-region: ap-northeast-1
+
+      # ECR にログイン
+      - name: Login to ECR
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.ECR_REGISTRY }}
+
+      #  Docker イメージのビルド・プッシュ・キャッシュの生成
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache # 保存されているキャッシュを取得,type=local はローカルファイル上にキャッシュを保存することを指定
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max # キャッシュを保存,mode=max はキャッシュを最大限に保存することを指定
+
+      # 常に最新のキャッシュを利用するため、キャッシュを移動
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      # Amazon ECS タスク定義のimage値を更新
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ./aws/task-definition.json
+          container-name: ${{ env.APP }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      # Amazon ECS タスク定義のデプロイ
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }} # id:task-defで出力されたタスク定義を利用
+          service: ${{ env.APP }}
+          cluster: ${{ env.APP }}
+          wait-for-service-stability: true # サービスの安定性を待つ
