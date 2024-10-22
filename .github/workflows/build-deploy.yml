@@ -8,7 +8,7 @@ on:
 
 env:
   OIDC_ARN: arn:aws:iam::485368632596:role/GitHubActionsOIDC # OIDCによるAWSへのアクセス権限を持つIAMロール
-  ECR_REGISTRY: 485368632596.dkr.ecr.ap-northeast-1.amazonaws.com # ECRリポジトリのURI
+  ECR_REGISTRY: 485368632596.dkr.ecr.ap-northeast-1.amazonaws.com # ECRレジストリのURI
   ECR_REPOSITORY: st-go-web-dev # ECRリポジトリ名
   APP: st-go-web-dev # アプリケーション名
 
