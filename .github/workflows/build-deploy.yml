@@ -64,7 +64,7 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      # Amazon ECS タスク定義のimage値を更新
+      # Amazon ECS タスク定義のimage値を更新し、新しいタスク定義を作成
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
@@ -79,5 +79,5 @@ jobs:
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }} # id:task-defで出力されたタスク定義を利用
           service: ${{ env.APP }}
-          cluster: ${{ env.APP }}
+          cluster: ${{ env.APP }}-cluster
           wait-for-service-stability: true # サービスの安定性を待つ
